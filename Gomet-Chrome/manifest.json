@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Gomets",
+  "version": "1.0",
+  "description": "Crea i comparteix notes adhesives en qualsevol pàgina web.",
+  "permissions": [
+    "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "firebase-app.js",
+        "firebase-firestore.js",
+        "content.js"
+      ]
+    }
+  ],
+  "host_permissions": [
+    "https://*.firebaseio.com/",
+    "https://*.googleapis.com/"
+  ],
+  "icons": {
+    "48": "icon.png"
+  }
+}
