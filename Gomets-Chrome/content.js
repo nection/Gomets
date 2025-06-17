@@ -36,146 +36,165 @@
     const botoEsborrarFletxa = document.createElement('div'); botoEsborrarFletxa.id = 'arrow-delete-button'; botoEsborrarFletxa.innerHTML = '×'; botoEsborrarFletxa.title = 'Esborra aquesta fletxa'; document.body.appendChild(botoEsborrarFletxa); botoEsborrarFletxa.addEventListener('mouseleave', () => botoEsborrarFletxa.style.display = 'none');
     const desarTotesLesNotes = () => { const notesALaPagina = document.querySelectorAll('.post-it-note'); const dadesDeLesNotes = Array.from(notesALaPagina).map(elementNota => ({ id: elementNota.id, x: elementNota.style.left, y: elementNota.style.top, width: elementNota.style.width, height: elementNota.style.height, content: elementNota.querySelector('.post-it-textarea').value, color: elementNota.dataset.color, objectiusFletxa: elementNota.objectiusFletxa || [] })); chrome.storage.local.set({ [urlPagina]: dadesDeLesNotes }); };
     
+
+    /* ---------- EINA ANTIBOJA: valida I “clampa” coordenades ---------- */
+    const segures = (x, y, refX, refY) => {
+    const MAX_DIST = 8000;                // límit perquè la línia no s’allargui infinit
+    const esFi = Number.isFinite(x) && Number.isFinite(y);
+    const massaLuny = Math.hypot(x - refX, y - refY) > MAX_DIST;
+    return esFi && !massaLuny ? [x, y] : [refX, refY];
+    };
+
+
     // --- LÒGICA DE LES FLETXES ---
     const renderitzarFletxesPerNota = (elementNota) => {
-        const idNota = elementNota.id;
-        const colorNota = elementNota.dataset.color || COLOR_CAPCALERA_PER_DEFECTE;
-        const idMarcador = `url(#arrowhead-${colorNota.substring(1)})`;
-        const fletxesActualsSVG = document.querySelectorAll(`[data-note-id="${idNota}"]`);
-        fletxesActualsSVG.forEach(elementSVG => {
-            const idObjectiu = elementSVG.dataset.arrowId;
-            if (!elementNota.objectiusFletxa.some(o => o.id === idObjectiu)) elementSVG.remove();
-        });
 
-        elementNota.objectiusFletxa.forEach(objectiu => {
-            let linia = document.getElementById(objectiu.id);
-            let agafadorPunta = document.getElementById(`handle-for-${objectiu.id}`);
-            if (!linia) {
-                linia = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                linia.id = objectiu.id;
-                linia.dataset.noteId = idNota;
-                linia.dataset.arrowId = objectiu.id;
-                llencSVG.appendChild(linia);
-                agafadorPunta = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                agafadorPunta.id = `handle-for-${objectiu.id}`;
-                agafadorPunta.dataset.noteId = idNota;
-                agafadorPunta.dataset.arrowId = objectiu.id;
-                agafadorPunta.setAttribute('r', '15');
-                agafadorPunta.style.fill = 'transparent';
-                agafadorPunta.style.cursor = 'move';
-                llencSVG.appendChild(agafadorPunta);
-
-                linia.addEventListener('mouseenter', () => {
-                    const startX = parseFloat(linia.getAttribute('x1'));
-                    const startY = parseFloat(linia.getAttribute('y1'));
-                    const endX = parseFloat(linia.getAttribute('x2'));
-                    const endY = parseFloat(linia.getAttribute('y2'));
-                    const length = Math.hypot(endX - startX, endY - startY);
-                    let posX, posY;
-                    if (length < 70) {
-                        posX = (startX + endX) / 2;
-                        posY = (startY + endY) / 2;
-                    } else {
-                        const distance_from_tip = 35;
-                        const unitX = (startX - endX) / length;
-                        const unitY = (startY - endY) / length;
-                        posX = endX + unitX * distance_from_tip;
-                        posY = endY + unitY * distance_from_tip;
-                    }
-                    botoEsborrarFletxa.style.left = `${posX - 10}px`;
-                    botoEsborrarFletxa.style.top = `${posY - 10}px`;
-                    botoEsborrarFletxa.style.display = 'block';
-                    botoEsborrarFletxa.onclick = () => {
-                        elementNota.objectiusFletxa = elementNota.objectiusFletxa.filter(t => t.id !== objectiu.id);
-                        linia.remove();
-                        agafadorPunta.remove();
-                        botoEsborrarFletxa.style.display = 'none';
-                        desarTotesLesNotes();
-                    };
-                });
-                linia.addEventListener('mouseleave', (e) => {
-                    if (e.relatedTarget !== botoEsborrarFletxa) botoEsborrarFletxa.style.display = 'none';
-                });
-
-                agafadorPunta.addEventListener('mousedown', (e) => {
-                    e.stopPropagation();
-                    document.body.classList.add('no-text-select', 'post-it-dragging-active');
-                    
-                    const enMovimentMouse = (moveE) => {
-                        objectiu.lastX = moveE.pageX;
-                        objectiu.lastY = moveE.pageY;
-
-                        const rectangleNota = elementNota.getBoundingClientRect();
-                        const iniciX = rectangleNota.left + window.scrollX + rectangleNota.width / 2;
-                        const iniciY = rectangleNota.top + window.scrollY + rectangleNota.height / 2;
-                        linia.setAttribute('x1', iniciX);
-                        linia.setAttribute('y1', iniciY);
-                        linia.setAttribute('x2', moveE.pageX);
-                        linia.setAttribute('y2', moveE.pageY);
-                        agafadorPunta.setAttribute('cx', moveE.pageX);
-                        agafadorPunta.setAttribute('cy', moveE.pageY);
-                    };
-
-                    const enDeixarAnarMouse = (upE) => {
-                        document.body.classList.remove('no-text-select', 'post-it-dragging-active');
-                        document.removeEventListener('mousemove', enMovimentMouse);
-                        document.removeEventListener('mouseup', enDeixarAnarMouse);
-                        
-                        llencSVG.style.pointerEvents = 'none';
-                        const elementDesti = document.elementFromPoint(upE.clientX, upE.clientY);
-                        llencSVG.style.pointerEvents = 'auto';
-
-                        if (elementDesti && elementDesti.tagName.toLowerCase() !== 'body' && elementDesti.tagName.toLowerCase() !== 'html') {
-                            const selector = generarSelectorCSS(elementDesti);
-                            const rectDesti = elementDesti.getBoundingClientRect();
-                            objectiu.selector = selector;
-                            objectiu.offsetXPercent = rectDesti.width > 0 ? (upE.pageX - (rectDesti.left + window.scrollX)) / rectDesti.width : 0.5;
-                            objectiu.offsetYPercent = rectDesti.height > 0 ? (upE.pageY - (rectDesti.top + window.scrollY)) / rectDesti.height : 0.5;
-                        } else {
-                            delete objectiu.selector;
-                            delete objectiu.offsetXPercent;
-                            delete objectiu.offsetYPercent;
-                        }
-                        
-                        desarTotesLesNotes();
-                    };
-                    document.addEventListener('mousemove', enMovimentMouse);
-                    document.addEventListener('mouseup', enDeixarAnarMouse);
-                });
-            }
-
-            const rectangleNota = elementNota.getBoundingClientRect();
-            const iniciX = rectangleNota.left + window.scrollX + rectangleNota.width / 2;
-            const iniciY = rectangleNota.top + window.scrollY + rectangleNota.height / 2;
-            let finalX, finalY;
-            const elementDesti = objectiu.selector ? document.querySelector(objectiu.selector) : null;
-            
-            if (elementDesti) {
-                const rectDesti = elementDesti.getBoundingClientRect();
-                if (typeof objectiu.offsetXPercent === 'number' && typeof objectiu.offsetYPercent === 'number') {
-                    finalX = rectDesti.left + window.scrollX + (rectDesti.width * objectiu.offsetXPercent);
-                    finalY = rectDesti.top + window.scrollY + (rectDesti.height * objectiu.offsetYPercent);
-                } else {
-                    finalX = rectDesti.left + window.scrollX + (objectiu.offsetX || 0);
-                    finalY = rectDesti.top + window.scrollY + (objectiu.offsetY || 0);
-                }
-                objectiu.lastX = finalX;
-                objectiu.lastY = finalY;
-            } else {
-                finalX = objectiu.lastX;
-                finalY = objectiu.lastY;
-            }
-            linia.setAttribute('x1', iniciX);
-            linia.setAttribute('y1', iniciY);
-            linia.setAttribute('x2', finalX);
-            linia.setAttribute('y2', finalY);
-            linia.setAttribute('stroke', colorNota);
-            linia.setAttribute('stroke-width', '3');
-            linia.setAttribute('marker-end', idMarcador);
-            agafadorPunta.setAttribute('cx', finalX);
-            agafadorPunta.setAttribute('cy', finalY);
-        });
+    /* Helper: valida i “clampa” coordenades                       */
+    const segures = (x, y, refX, refY) => {
+        const MAX_DIST = 3000;                // ≈ 2 pantalles 4K d’alçada
+        const invalid  = !Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0);
+        const massaLuny = Math.hypot(x - refX, y - refY) > MAX_DIST;
+        return (invalid || massaLuny) ? [refX, refY] : [x, y];
     };
+
+    const idNota     = elementNota.id;
+    const colorNota  = elementNota.dataset.color || COLOR_CAPCALERA_PER_DEFECTE;
+    const idMarcador = `url(#arrowhead-${colorNota.substring(1)})`;
+
+    /* 1) Elimina fletxes esborrades de la llista ---------------- */
+    document.querySelectorAll(`[data-note-id="${idNota}"]`).forEach(svgEl => {
+        if (!elementNota.objectiusFletxa.some(o => o.id === svgEl.dataset.arrowId)) svgEl.remove();
+    });
+
+    /* 2) Processa cada objectiu --------------------------------- */
+    elementNota.objectiusFletxa.forEach(objectiu => {
+
+        /* -- Creació “lazy” de la línia i la punta --------------- */
+        let linia = document.getElementById(objectiu.id);
+        let punta = document.getElementById(`handle-for-${objectiu.id}`);
+
+        if (!linia) {
+            linia = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            linia.id              = objectiu.id;
+            linia.dataset.noteId  = idNota;
+            linia.dataset.arrowId = objectiu.id;
+            llencSVG.appendChild(linia);
+
+            punta = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            punta.id              = `handle-for-${objectiu.id}`;
+            punta.dataset.noteId  = idNota;
+            punta.dataset.arrowId = objectiu.id;
+            punta.setAttribute('r', '15');
+            punta.style.fill   = 'transparent';
+            punta.style.cursor = 'move';
+            llencSVG.appendChild(punta);
+
+            /* --- LISTENERS originals: esborrar + arrossegar ------- */
+            linia.addEventListener('mouseenter', () => {
+                const x1 = +linia.getAttribute('x1'), y1 = +linia.getAttribute('y1');
+                const x2 = +linia.getAttribute('x2'), y2 = +linia.getAttribute('y2');
+                const d  = Math.hypot(x2 - x1, y2 - y1);
+
+                const posX = d < 70 ? (x1 + x2) / 2 : x2 + (x1 - x2) / d * 35;
+                const posY = d < 70 ? (y1 + y2) / 2 : y2 + (y1 - y2) / d * 35;
+
+                botoEsborrarFletxa.style.left   = `${posX - 10}px`;
+                botoEsborrarFletxa.style.top    = `${posY - 10}px`;
+                botoEsborrarFletxa.style.display = 'block';
+                botoEsborrarFletxa.onclick = () => {
+                    elementNota.objectiusFletxa = elementNota.objectiusFletxa.filter(o => o.id !== objectiu.id);
+                    linia.remove(); punta.remove();
+                    botoEsborrarFletxa.style.display = 'none';
+                    desarTotesLesNotes();
+                };
+            });
+            linia.addEventListener('mouseleave', (e) => {
+                if (e.relatedTarget !== botoEsborrarFletxa) botoEsborrarFletxa.style.display = 'none';
+            });
+
+            punta.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                document.body.classList.add('no-text-select', 'post-it-dragging-active');
+
+                const moure = mv => {
+                    objectiu.lastX = mv.pageX; objectiu.lastY = mv.pageY;
+                    const rN = elementNota.getBoundingClientRect();
+                    const cx = rN.left + window.scrollX + rN.width / 2;
+                    const cy = rN.top  + window.scrollY + rN.height / 2;
+                    linia.setAttribute('x1', cx);   linia.setAttribute('y1', cy);
+                    linia.setAttribute('x2', mv.pageX);
+                    linia.setAttribute('y2', mv.pageY);
+                    punta.setAttribute('cx', mv.pageX);
+                    punta.setAttribute('cy', mv.pageY);
+                };
+
+                const deixar = up => {
+                    document.body.classList.remove('no-text-select', 'post-it-dragging-active');
+                    document.removeEventListener('mousemove', moure);
+                    document.removeEventListener('mouseup', deixar);
+
+                    llencSVG.style.pointerEvents = 'none';
+                    const elDesti = document.elementFromPoint(up.clientX, up.clientY);
+                    llencSVG.style.pointerEvents = 'auto';
+
+                    if (elDesti && !['body','html'].includes(elDesti.tagName.toLowerCase())) {
+                        const sel = generarSelectorCSS(elDesti);
+                        const r   = elDesti.getBoundingClientRect();
+                        objectiu.selector       = sel;
+                        objectiu.offsetXPercent = r.width  ? (up.pageX - (r.left + window.scrollX)) / r.width  : 0.5;
+                        objectiu.offsetYPercent = r.height ? (up.pageY - (r.top  + window.scrollY)) / r.height : 0.5;
+                    } else {
+                        delete objectiu.selector; delete objectiu.offsetXPercent; delete objectiu.offsetYPercent;
+                    }
+                    desarTotesLesNotes();
+                };
+
+                document.addEventListener('mousemove', moure);
+                document.addEventListener('mouseup', deixar);
+            });
+        }
+
+        /* -- Punt d’origen (centre de la nota) --------------------- */
+        const rN = elementNota.getBoundingClientRect();
+        const x0 = rN.left + window.scrollX + rN.width  / 2;
+        const y0 = rN.top  + window.scrollY + rN.height / 2;
+
+        /* -- Punt final robust ------------------------------------- */
+        let xf, yf;
+        const elDesti = objectiu.selector && document.querySelector(objectiu.selector);
+
+        if (elDesti) {
+            const rD = elDesti.getBoundingClientRect();
+            if (rD.width && rD.height) {
+                if (typeof objectiu.offsetXPercent === 'number' && typeof objectiu.offsetYPercent === 'number') {
+                    xf = rD.left + window.scrollX + rD.width  * objectiu.offsetXPercent;
+                    yf = rD.top  + window.scrollY + rD.height * objectiu.offsetYPercent;
+                } else {
+                    xf = rD.left + window.scrollX + (objectiu.offsetX || 0);
+                    yf = rD.top  + window.scrollY + (objectiu.offsetY || 0);
+                }
+                [xf, yf] = segures(xf, yf, objectiu.lastX ?? x0, objectiu.lastY ?? y0);
+                objectiu.lastX = xf; objectiu.lastY = yf;
+            }
+        }
+
+        /* Fallback si destí invàlid / desaparegut ------------------ */
+        [xf, yf] = segures(
+            xf ?? objectiu.lastX,
+            yf ?? objectiu.lastY,
+            x0, y0
+        );
+
+        /* -- Dibuixa ---------------------------------------------- */
+        linia.setAttribute('x1', x0); linia.setAttribute('y1', y0);
+        linia.setAttribute('x2', xf); linia.setAttribute('y2', yf);
+        linia.setAttribute('stroke', colorNota);
+        linia.setAttribute('stroke-width', '3');
+        linia.setAttribute('marker-end', idMarcador);
+
+        punta.setAttribute('cx', xf); punta.setAttribute('cy', yf);
+    });
+};
 
     const renderitzarNota = (dadesNota) => {
         const { id, x, y, width = '200px', height = '200px', content, color: colorCapcalera = COLOR_CAPCALERA_PER_DEFECTE, objectiusFletxa = [] } = dadesNota;
