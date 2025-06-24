@@ -2,7 +2,7 @@
 
 // arxiu: content.js
 (() => {
-    console.log("Gomets 1.0");
+    console.log("Gomets 2.0");
 
     const urlPagina = window.location.href;
     const PALETA_COLORS = ['#f2c000', '#8bc34a', '#64b5f6', '#e57373', '#ba68c8', '#78909c'];
@@ -337,14 +337,6 @@
             console.error(`Error: No s'ha trobat l'element ${noteId} per ressaltar.`);
         }
     };
-
-    // MÈTODE 1: Escolta missatges directes (per a pestanyes ja obertes).
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'highlightNote') {
-            executarRessaltat(request.noteId);
-            sendResponse({ status: 'ok' });
-        }
-    });
 
     // MÈTODE 2: Pregunta al "missatger" si hi ha feina pendent per a aquesta pestanya.
     const demanarTascaPendent = () => {

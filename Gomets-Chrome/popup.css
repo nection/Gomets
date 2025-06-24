@@ -128,4 +128,23 @@ li:last-child {
     color: #888;
 }
 
+/* NOU: Estils per al drag-and-drop */
+li[draggable="true"] {
+    cursor: grab;
+}
+
+li.dragging {
+    opacity: 0.5;
+    background: #e0eaf0;
+}
+
+/* NOU: Línia visual que indica on es col·locarà l'element */
+li.drag-over-top {
+    border-top: 2px solid #3498db;
+}
+
+li.drag-over-bottom {
+    border-bottom: 2px solid #3498db;
+}
+
 /* --- END OF FILE popup.css --- */

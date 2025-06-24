@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Gomets 1.0",
-  "version": "1.0",
+  "name": "Gomets 2.0",
+  "version": "2.0",
   "description": "Crea notes adhesives a qualsevol pàgina web, ara amb un gestor centralitzat.",
   "permissions": [
     "storage",
