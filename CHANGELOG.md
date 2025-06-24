@@ -1,5 +1,13 @@
 # Registre de canvis
 
+## [3.0] - 2025-06-24
+### Afegit
+- Cercador per a webs i notes amb opció de cerca global.
+- Paleta de colors per personalitzar cada nota.
+- Drag-and-drop i controls millorats per evitar clics accidentals.
+- Mode fosc automàtic a la interfície del gestor.
+- Ressaltat més fiable fins i tot en pestanyes noves.
+
 ## [2.0] - 2025-06-24
 ### Afegit
 - Reordenació de webs i notes amb drag-and-drop al menú emergent.
