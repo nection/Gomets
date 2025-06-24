@@ -1,6 +1,12 @@
-# Gomets 1.0
+# Gomets 2.0
 
-Gomets és una extensió per al navegador Chrome que permet crear notes adhesives en qualsevol pàgina web. Les notes es poden gestionar i ressaltar fàcilment des d'un menú emergent centralitzat.
+Gomets és una extensió per al navegador Chrome que permet crear notes adhesives en qualsevol pàgina web. Les notes es poden gestionar i ressaltar fàcilment des d'un menú emergent centralitzat i ara es poden enllaçar amb fletxes i reordenar.
+
+## Novetats de la versió 2.0
+
+- Reordenació de webs i notes arrossegant-les al menú emergent.
+- Ressaltat de notes més fiable, fins i tot en pestanyes ja obertes.
+- Possibilitat d'unir notes amb fletxes a elements de la pàgina.
 
 ## Instal·lació
 
