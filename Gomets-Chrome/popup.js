@@ -1,23 +1,73 @@
-// --- START OF FILE popup.js ---
-
 document.addEventListener('DOMContentLoaded', () => {
     const container = document.getElementById('container');
     const backButton = document.getElementById('back-button');
-    let allStoredData = {};
+    const searchBox = document.getElementById('search-box');
+    const searchEverywhereContainer = document.getElementById('search-everywhere-container');
+    const searchEverywhereCheckbox = document.getElementById('search-everywhere-checkbox');
 
-    // --- LÒGICA D'ESBORRAT (sense canvis) ---
+    let allStoredData = {};
+    let currentView = {
+        type: 'urls', // pot ser 'urls' o 'notes'
+        url: null
+    };
+    // NOU: Variable de control per diferenciar clic de drag
+    let isDragging = false; 
+
+    // --- LÒGICA DE CERCA (Funciona com abans) ---
+
+    const performSearch = () => {
+        const searchTerm = searchBox.value.toLowerCase().trim();
+
+        if (currentView.type === 'urls') {
+            const searchEverywhere = searchEverywhereCheckbox.checked;
+            let filteredUrls;
+
+            const orderedUrls = allStoredData['_urlOrder'] 
+                ? allStoredData['_urlOrder'].filter(url => allStoredData[url] && allStoredData[url].length > 0)
+                : Object.keys(allStoredData).filter(key => key !== '_urlOrder');
+
+            if (!searchTerm) {
+                filteredUrls = orderedUrls;
+            } else {
+                if (searchEverywhere) {
+                    filteredUrls = orderedUrls.filter(url => {
+                        const urlMatch = url.toLowerCase().includes(searchTerm);
+                        if (urlMatch) return true;
+                        const notes = allStoredData[url] || [];
+                        return notes.some(note => note.content && note.content.toLowerCase().includes(searchTerm));
+                    });
+                } else {
+                    filteredUrls = orderedUrls.filter(url => url.toLowerCase().includes(searchTerm));
+                }
+            }
+            renderUrlList(filteredUrls);
+
+        } else if (currentView.type === 'notes') {
+            const notes = allStoredData[currentView.url] || [];
+            let filteredNotes;
+
+            if (!searchTerm) {
+                filteredNotes = notes;
+            } else {
+                filteredNotes = notes.filter(note => note.content && note.content.toLowerCase().includes(searchTerm));
+            }
+            renderNoteList(currentView.url, filteredNotes);
+        }
+    };
+
+    // --- LÒGICA D'ESBORRAT (Funciona com abans) ---
 
     const handleUrlDelete = (event) => {
         event.stopPropagation();
         const urlToDelete = event.currentTarget.dataset.url;
         if (confirm(`Estàs segur que vols esborrar el web "${new URL(urlToDelete).hostname}" i totes les seves notes? Aquesta acció no es pot desfer.`)) {
-            chrome.storage.local.remove([urlToDelete, '_urlOrder'], () => { // MODIFICAT: Esborra també l'ordre si cal
+            chrome.storage.local.remove([urlToDelete, '_urlOrder'], () => {
                 delete allStoredData[urlToDelete];
-                // Recalculem l'ordre per si de cas
                 if (allStoredData._urlOrder) {
                     allStoredData._urlOrder = allStoredData._urlOrder.filter(u => u !== urlToDelete);
                 }
-                renderUrlList();
+                searchBox.value = '';
+                performSearch();
             });
         }
     };
@@ -31,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const currentNotes = allStoredData[url] || [];
             const updatedNotes = currentNotes.filter(note => note.id !== noteIdToDelete);
 
-            // Si la llista de notes queda buida, eliminem la URL sencera
             if (updatedNotes.length === 0) {
                  chrome.storage.local.remove(url, () => {
                     delete allStoredData[url];
@@ -39,19 +88,18 @@ document.addEventListener('DOMContentLoaded', () => {
                         allStoredData._urlOrder = allStoredData._urlOrder.filter(u => u !== url);
                         chrome.storage.local.set({ '_urlOrder': allStoredData._urlOrder });
                     }
-                    renderUrlList();
+                    goBackToUrlList();
                 });
             } else {
-                // Si encara queden notes, només actualitzem la llista
                 chrome.storage.local.set({ [url]: updatedNotes }, () => {
                     allStoredData[url] = updatedNotes;
-                    renderNoteList(url);
+                    performSearch();
                 });
             }
         }
     };
 
-    // --- NOVA LÒGICA DE DRAG-AND-DROP ---
+    // --- LÒGICA DE DRAG-AND-DROP (MODIFICADA per evitar conflictes amb el clic) ---
 
     const makeListSortable = (ulElement, onSortCallback) => {
         let draggedItem = null;
@@ -60,16 +108,22 @@ document.addEventListener('DOMContentLoaded', () => {
             item.draggable = true;
 
             item.addEventListener('dragstart', (e) => {
+                isDragging = true; // Indiquem que comença un arrossegament
                 draggedItem = item;
                 setTimeout(() => item.classList.add('dragging'), 0);
                 e.dataTransfer.effectAllowed = 'move';
             });
 
             item.addEventListener('dragend', () => {
+                // Esperem una fracció de segon abans de resetejar 'isDragging'
+                // per evitar que s'activi un 'click' accidentalment al final.
                 setTimeout(() => {
-                    draggedItem.classList.remove('dragging');
-                    draggedItem = null;
-                }, 0);
+                    isDragging = false; 
+                }, 50);
+
+                draggedItem.classList.remove('dragging');
+                draggedItem = null;
+                
                  ulElement.querySelectorAll('li').forEach(li => {
                     li.classList.remove('drag-over-top', 'drag-over-bottom');
                 });
@@ -117,20 +171,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
     
-    // --- LÒGICA DE GUARDAT DE L'ORDRE (NOVA) ---
+    // --- LÒGICA DE GUARDAT DE L'ORDRE (Funciona com abans) ---
     
     const saveUrlOrder = () => {
         const ul = container.querySelector('ul');
-        const newOrder = Array.from(ul.querySelectorAll('li .item-text')).map(span => span.dataset.url);
+        const newOrder = Array.from(ul.querySelectorAll('li')).map(li => li.dataset.url);
         allStoredData['_urlOrder'] = newOrder;
         chrome.storage.local.set({ '_urlOrder': newOrder });
     };
 
     const saveNoteOrder = (url) => {
         const ul = container.querySelector('ul');
-        const newNoteOrderIds = Array.from(ul.querySelectorAll('li .item-text')).map(span => span.dataset.noteId);
+        const newNoteOrderIds = Array.from(ul.querySelectorAll('li')).map(li => li.dataset.noteId);
         
-        // Reordenem l'array de notes original basant-nos en el nou ordre d'IDs
         const originalNotes = allStoredData[url];
         const newOrderedNotes = newNoteOrderIds.map(id => originalNotes.find(note => note.id === id));
         
@@ -139,47 +192,45 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
 
-    // --- LÒGICA DE RENDERITZAT (MODIFICADA) ---
+    // --- LÒGICA DE RENDERITZAT (MODIFICADA per ampliar l'àrea de clic) ---
 
-    const renderUrlList = () => {
+    const renderUrlList = (urlsToDisplay = null) => {
+        currentView = { type: 'urls', url: null };
         container.innerHTML = '';
         backButton.classList.add('hidden');
+        searchEverywhereContainer.classList.remove('hidden');
         
-        const existingUrls = Object.keys(allStoredData).filter(key => key !== '_urlOrder' && Array.isArray(allStoredData[key]) && allStoredData[key].length > 0);
+        if (urlsToDisplay === null) {
+            const existingUrls = Object.keys(allStoredData).filter(key => key !== '_urlOrder' && Array.isArray(allStoredData[key]) && allStoredData[key].length > 0);
+            let orderedUrls = [];
+            if (allStoredData['_urlOrder']) {
+                orderedUrls = allStoredData['_urlOrder'].filter(url => existingUrls.includes(url));
+            }
+            existingUrls.forEach(url => {
+                if (!orderedUrls.includes(url)) {
+                    orderedUrls.push(url);
+                }
+            });
+            urlsToDisplay = orderedUrls;
+            allStoredData['_urlOrder'] = urlsToDisplay;
+            chrome.storage.local.set({ '_urlOrder': urlsToDisplay });
+        }
 
-        if (existingUrls.length === 0) {
-            container.innerHTML = '<div id="loading">No tens cap nota guardada.</div>';
+        if (urlsToDisplay.length === 0) {
+            container.innerHTML = '<div id="loading">No s\'han trobat resultats.</div>';
             return;
         }
 
-        // Determina l'ordre de les URLs
-        let orderedUrls = [];
-        if (allStoredData['_urlOrder']) {
-            // Filtra l'ordre guardat per incloure només URLs que encara existeixen
-            orderedUrls = allStoredData['_urlOrder'].filter(url => existingUrls.includes(url));
-        }
-        // Afegeix les URLs noves (que no estiguin a l'ordre guardat) al final
-        existingUrls.forEach(url => {
-            if (!orderedUrls.includes(url)) {
-                orderedUrls.push(url);
-            }
-        });
-        
-        allStoredData['_urlOrder'] = orderedUrls; // Sincronitza l'ordre intern
-        chrome.storage.local.set({ '_urlOrder': orderedUrls });
-
-
         const ul = document.createElement('ul');
-        orderedUrls.forEach(url => {
+        urlsToDisplay.forEach(url => {
             const li = document.createElement('li');
             li.className = 'url-item list-item-container';
+            li.dataset.url = url; // Afegim les dades a tot el 'li'
             
             const textSpan = document.createElement('span');
             textSpan.className = 'item-text';
             try { textSpan.textContent = new URL(url).hostname; } catch (e) { textSpan.textContent = url; }
             textSpan.title = url;
-            textSpan.dataset.url = url;
-            textSpan.addEventListener('click', () => { renderNoteList(url); });
             li.appendChild(textSpan);
 
             const deleteBtn = document.createElement('button');
@@ -190,21 +241,30 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteBtn.addEventListener('click', handleUrlDelete);
             li.appendChild(deleteBtn);
             
+            // L'event de clic s'assigna a tot el 'li'
+            li.addEventListener('click', () => {
+                if (isDragging) return; // Evitem el clic si s'està arrossegant
+                searchBox.value = '';
+                renderNoteList(url);
+            });
+            
             ul.appendChild(li);
         });
         container.appendChild(ul);
         
-        // APLICA LA FUNCIONALITAT DE DRAG-AND-DROP
         makeListSortable(ul, saveUrlOrder);
     };
 
-    const renderNoteList = (url) => {
+    const renderNoteList = (url, notesToDisplay = null) => {
+        currentView = { type: 'notes', url: url };
         container.innerHTML = '';
         backButton.classList.remove('hidden');
-        const notes = allStoredData[url] || [];
+        searchEverywhereContainer.classList.add('hidden');
+
+        const notes = notesToDisplay === null ? (allStoredData[url] || []) : notesToDisplay;
 
         if (notes.length === 0) {
-             renderUrlList();
+             container.innerHTML = '<div id="loading">No s\'han trobat notes.</div>';
              return;
         }
 
@@ -212,15 +272,14 @@ document.addEventListener('DOMContentLoaded', () => {
         notes.forEach(note => {
             const li = document.createElement('li');
             li.className = 'note-item list-item-container';
+            li.dataset.url = url; // Afegim les dades a tot el 'li'
+            li.dataset.noteId = note.id;
 
             const textSpan = document.createElement('span');
             textSpan.className = 'item-text';
             const textContent = note.content ? note.content.substring(0, 50) + (note.content.length > 50 ? '...' : '') : '[Nota buida]';
             textSpan.textContent = textContent;
             textSpan.title = note.content || 'Clica per anar a la nota';
-            textSpan.dataset.url = url;
-            textSpan.dataset.noteId = note.id;
-            textSpan.addEventListener('click', handleNoteClick);
             li.appendChild(textSpan);
 
             const deleteBtn = document.createElement('button');
@@ -232,15 +291,21 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteBtn.addEventListener('click', handleNoteDelete);
             li.appendChild(deleteBtn);
 
+            // L'event de clic s'assigna a tot el 'li'
+            li.addEventListener('click', (event) => {
+                if (isDragging) return; // Evitem el clic si s'està arrossegant
+                handleNoteClick(event);
+            });
+
             ul.appendChild(li);
         });
         container.appendChild(ul);
         
-        // APLICA LA FUNCIONALITAT DE DRAG-AND-DROP
         makeListSortable(ul, () => saveNoteOrder(url));
     };
 
     const handleNoteClick = (event) => {
+        // Obtenim les dades del 'li' clicat
         const targetUrl = event.currentTarget.dataset.url;
         const noteId = event.currentTarget.dataset.noteId;
 
@@ -252,14 +317,20 @@ document.addEventListener('DOMContentLoaded', () => {
         
         window.close();
     };
+    
+    const goBackToUrlList = () => {
+        searchBox.value = '';
+        renderUrlList();
+    };
 
-    // --- INICIALITZACIÓ (sense canvis) ---
+    // --- INICIALITZACIÓ (Funciona com abans) ---
 
-    backButton.addEventListener('click', renderUrlList);
+    backButton.addEventListener('click', goBackToUrlList);
+    searchBox.addEventListener('input', performSearch);
+    searchEverywhereCheckbox.addEventListener('change', performSearch);
     
     chrome.storage.local.get(null, (data) => {
         allStoredData = data;
         renderUrlList();
     });
 });
-// --- END OF FILE popup.js ---

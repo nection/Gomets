@@ -8,6 +8,14 @@
 <body>
     <header>
         <h1>Gomets</h1>
+        <div id="search-controls">
+            <input type="search" id="search-box" placeholder="Cerca...">
+            <!-- CANVI AQUÍ: Hem tret el text i afegit un 'title' per l'ajuda contextual -->
+            <div id="search-everywhere-container" class="hidden" title="Activa per cercar a tot arreu (inclou el contingut de totes les notes)">
+                <input type="checkbox" id="search-everywhere-checkbox">
+                <label for="search-everywhere-checkbox" class="icon-label"></label>
+            </div>
+        </div>
         <button id="back-button" class="hidden" title="Torna a la llista de webs">← Enrere</button>
     </header>
     <main id="container">

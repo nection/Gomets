@@ -1,5 +1,3 @@
-/* --- START OF FILE popup.css --- */
-
 body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     width: 350px;
@@ -8,23 +6,95 @@ body {
     padding: 10px;
     background-color: #f9f9f9;
     color: #333;
+    transition: background-color 0.2s ease, color 0.2s ease; /* Afegit per a una transició suau */
 }
 
 header {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     border-bottom: 1px solid #ddd;
     padding-bottom: 8px;
     margin-bottom: 8px;
+    gap: 8px;
+    transition: border-bottom-color 0.2s ease;
 }
 
 h1 {
     font-size: 16px;
     margin: 0;
-    flex-grow: 1;
+    flex-shrink: 0;
     color: #f2c000;
     text-shadow: 1px 1px 1px #ccc;
 }
+
+#search-controls {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#search-box {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+/* --- NOUS ESTILS PER A LA ICONA --- */
+
+#search-everywhere-container {
+    position: relative;
+    cursor: pointer;
+}
+
+/* Amaguem el checkbox real, però el mantenim funcional i accessible */
+#search-everywhere-checkbox {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    margin: 0;
+}
+
+/* Aquesta és la nostra icona visual (la label) */
+.icon-label {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #f0f0f0;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+/* Dibuixem una icona de "globus terraqüi" dins la label amb CSS */
+.icon-label::before {
+    content: '🌐';
+    font-size: 16px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+/* Quan el checkbox (invisible) està marcat, canviem l'estil de la icona */
+#search-everywhere-checkbox:checked + .icon-label {
+    background-color: #fff8dd; /* Un groc suau per indicar activació */
+    border-color: #f2c000;
+}
+
+#search-everywhere-checkbox:checked + .icon-label::before {
+    opacity: 1;
+}
+
+/* --- FI DELS NOUS ESTILS PER A LA ICONA --- */
+
 
 #back-button {
     background: #e0e0e0;
@@ -33,14 +103,16 @@ h1 {
     cursor: pointer;
     padding: 4px 8px;
     font-size: 12px;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 
 #back-button:hover {
     background: #d0d0d0;
 }
 
-#back-button.hidden {
-    display: none;
+.hidden {
+    display: none !important;
 }
 
 #container {
@@ -57,8 +129,9 @@ ul {
 li {
     padding: 12px 10px;
     border-bottom: 1px solid #eee;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, border-bottom-color 0.2s ease;
     font-size: 14px;
+    cursor: pointer; /* Afegim cursor pointer a tota la fila */
 }
 
 li:hover {
@@ -69,7 +142,6 @@ li:last-child {
     border-bottom: none;
 }
 
-/* NOU: Contenidor flex per al text i el botó */
 .list-item-container {
     display: flex;
     justify-content: space-between;
@@ -77,13 +149,11 @@ li:last-child {
     gap: 10px;
 }
 
-/* NOU: Span pel text per permetre l'overflow */
 .item-text {
-    flex-grow: 1; /* Ocupa tot l'espai possible */
+    flex-grow: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    cursor: pointer;
 }
 
 
@@ -94,9 +164,9 @@ li:last-child {
 .note-item .item-text {
     font-style: italic;
     color: #555;
+    transition: color 0.2s ease;
 }
 
-/* NOU: Estils pel botó d'esborrar */
 .delete-btn {
     background-color: #fbe0e0;
     color: #c0392b;
@@ -108,7 +178,7 @@ li:last-child {
     text-align: center;
     font-weight: bold;
     cursor: pointer;
-    flex-shrink: 0; /* Evita que el botó s'encongeixi */
+    flex-shrink: 0;
     transition: all 0.2s ease;
     padding: 0;
     font-size: 16px;
@@ -126,9 +196,9 @@ li:last-child {
     padding: 20px;
     text-align: center;
     color: #888;
+    transition: color 0.2s ease;
 }
 
-/* NOU: Estils per al drag-and-drop */
 li[draggable="true"] {
     cursor: grab;
 }
@@ -138,7 +208,6 @@ li.dragging {
     background: #e0eaf0;
 }
 
-/* NOU: Línia visual que indica on es col·locarà l'element */
 li.drag-over-top {
     border-top: 2px solid #3498db;
 }
@@ -147,4 +216,81 @@ li.drag-over-bottom {
     border-bottom: 2px solid #3498db;
 }
 
-/* --- END OF FILE popup.css --- */
+/* --- MODE FOSC AUTOMÀTIC --- */
+/* Aquests estils només s'apliquen si el sistema operatiu està en mode fosc */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #2c2c2e;
+        color: #f0f0f0;
+    }
+
+    header {
+        border-bottom-color: #444;
+    }
+
+    h1 {
+        text-shadow: none; /* El text-shadow clar no queda bé en fons fosc */
+    }
+
+    #search-box {
+        background-color: #3a3a3c;
+        border-color: #555;
+        color: #f0f0f0;
+    }
+
+    #search-box::placeholder {
+        color: #8e8e93;
+    }
+
+    .icon-label {
+        background-color: #3a3a3c;
+        border-color: #555;
+    }
+    
+    #search-everywhere-checkbox:checked + .icon-label {
+        background-color: #5a522a; /* Un groc fosc per indicar activació */
+        border-color: #f2c000;
+    }
+
+    #back-button {
+        background-color: #444;
+        border-color: #555;
+        color: #f0f0f0;
+    }
+
+    #back-button:hover {
+        background: #555;
+    }
+    
+    li {
+        border-bottom-color: #444;
+    }
+
+    li:hover {
+        background-color: #3a3a3c;
+    }
+    
+    .note-item .item-text {
+        color: #bbb;
+    }
+    
+    .delete-btn {
+        background-color: #5c231e;
+        color: #ff8a80;
+        border-color: #8f382f;
+    }
+
+    .delete-btn:hover {
+        background-color: #e74c3c;
+        color: white;
+        border-color: #c0392b;
+    }
+
+    #loading {
+        color: #999;
+    }
+
+    li.dragging {
+        background: #3a4a5a;
+    }
+}
