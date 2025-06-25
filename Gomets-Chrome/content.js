@@ -1,9 +1,11 @@
 (() => {
-    console.log("Gomets 3.0: Carregant script...");
+    console.log("Gomets 4.0: Carregant script...");
 
     const urlPagina = window.location.href;
     const PALETA_COLORS = ['#f2c000', '#8bc34a', '#64b5f6', '#e57373', '#ba68c8', '#78909c'];
     const COLOR_CAPCALERA_PER_DEFECTE = PALETA_COLORS[0];
+    let stickyHeader = null;
+    let headerOffset = 0;
 
     // --- Funcions de renderitzat i estil ---
     const generarSelectorCSS = (el) => { if (!(el instanceof Element)) return; const parts = []; while (el.nodeType === Node.ELEMENT_NODE) { let selectorPart = el.nodeName.toLowerCase(); if (el.id) { selectorPart += '#' + el.id; parts.unshift(selectorPart); break; } else { let germans = el.parentNode.childNodes; let comptador = 0; for (let i = 0; i < germans.length; i++) { let germa = germans[i]; if (germa.nodeType === Node.ELEMENT_NODE) { comptador++; if (germa === el) { selectorPart += `:nth-child(${comptador})`; break; } } } } parts.unshift(selectorPart); el = el.parentNode; if (el.nodeName.toLowerCase() === 'body') break; } return parts.join(' > '); };
@@ -33,15 +35,22 @@
     const desarTotesLesNotes = () => { const notesALaPagina = document.querySelectorAll('.post-it-note'); const dadesDeLesNotes = Array.from(notesALaPagina).map(elementNota => ({ id: elementNota.id, x: elementNota.style.left, y: elementNota.style.top, width: elementNota.style.width, height: elementNota.style.height, content: elementNota.querySelector('.post-it-textarea').value, color: elementNota.dataset.color, objectiusFletxa: elementNota.objectiusFletxa || [] })); chrome.storage.local.set({ [urlPagina]: dadesDeLesNotes }); };
     
     // --- LÒGICA DE LES FLETXES ---
-    const renderitzarFletxesPerNota = (elementNota) => {
+const renderitzarFletxesPerNota = (elementNota) => {
         const segures = (x, y, refX, refY) => { const MAX_DIST = 3000; const invalid  = !Number.isFinite(x) || !Number.isFinite(y) || (x === 0 && y === 0); const massaLuny = Math.hypot(x - refX, y - refY) > MAX_DIST; return (invalid || massaLuny) ? [refX, refY] : [x, y]; };
         const idNota = elementNota.id; const colorNota = elementNota.dataset.color || COLOR_CAPCALERA_PER_DEFECTE; const idMarcador = `url(#arrowhead-${colorNota.substring(1)})`;
         document.querySelectorAll(`[data-note-id="${idNota}"]`).forEach(svgEl => { if (!elementNota.objectiusFletxa.some(o => o.id === svgEl.dataset.arrowId)) svgEl.remove(); });
+        
+        // Assegurem que objectiusFletxa és un array
+        if (!Array.isArray(elementNota.objectiusFletxa)) {
+            elementNota.objectiusFletxa = [];
+        }
+    
         elementNota.objectiusFletxa.forEach(objectiu => {
             let linia = document.getElementById(objectiu.id); let punta = document.getElementById(`handle-for-${objectiu.id}`);
             if (!linia) {
                 linia = document.createElementNS("http://www.w3.org/2000/svg", "line"); linia.id = objectiu.id; linia.dataset.noteId = idNota; linia.dataset.arrowId = objectiu.id; llencSVG.appendChild(linia);
                 punta = document.createElementNS("http://www.w3.org/2000/svg", "circle"); punta.id = `handle-for-${objectiu.id}`; punta.dataset.noteId = idNota; punta.dataset.arrowId = objectiu.id; punta.setAttribute('r', '15'); punta.style.fill = 'transparent'; punta.style.cursor = 'move'; llencSVG.appendChild(punta);
+                
                 linia.addEventListener('mouseenter', () => {
                     const x1 = +linia.getAttribute('x1'), y1 = +linia.getAttribute('y1'); const x2 = +linia.getAttribute('x2'), y2 = +linia.getAttribute('y2'); const d = Math.hypot(x2 - x1, y2 - y1);
                     const posX = d < 70 ? (x1 + x2) / 2 : x2 + (x1 - x2) / d * 35; const posY = d < 70 ? (y1 + y2) / 2 : y2 + (y1 - y2) / d * 35;
@@ -49,24 +58,20 @@
                     botoEsborrarFletxa.onclick = () => { elementNota.objectiusFletxa = elementNota.objectiusFletxa.filter(o => o.id !== objectiu.id); linia.remove(); punta.remove(); botoEsborrarFletxa.style.display = 'none'; desarTotesLesNotes(); };
                 });
                 linia.addEventListener('mouseleave', (e) => { if (e.relatedTarget !== botoEsborrarFletxa) botoEsborrarFletxa.style.display = 'none'; });
+                
+                // --- APLIQUEM EL TRUC ---
                 punta.addEventListener('mousedown', (e) => {
-                    e.stopPropagation(); document.body.classList.add('no-text-select', 'post-it-dragging-active');
-                    const moure = mv => {
-                        objectiu.lastX = mv.pageX; objectiu.lastY = mv.pageY; const rN = elementNota.getBoundingClientRect(); const cx = rN.left + window.scrollX + rN.width / 2; const cy = rN.top + window.scrollY + rN.height / 2;
-                        linia.setAttribute('x1', cx); linia.setAttribute('y1', cy); linia.setAttribute('x2', mv.pageX); linia.setAttribute('y2', mv.pageY); punta.setAttribute('cx', mv.pageX); punta.setAttribute('cy', mv.pageY);
-                    };
-                    const deixar = up => {
-                        document.body.classList.remove('no-text-select', 'post-it-dragging-active'); document.removeEventListener('mousemove', moure); document.removeEventListener('mouseup', deixar);
-                        llencSVG.style.pointerEvents = 'none'; const elDesti = document.elementFromPoint(up.clientX, up.clientY); llencSVG.style.pointerEvents = 'auto';
-                        if (elDesti && !['body','html'].includes(elDesti.tagName.toLowerCase())) {
-                            const sel = generarSelectorCSS(elDesti); const r = elDesti.getBoundingClientRect();
-                            objectiu.selector = sel; objectiu.offsetXPercent = r.width ? (up.pageX - (r.left + window.scrollX)) / r.width : 0.5; objectiu.offsetYPercent = r.height ? (up.pageY - (r.top + window.scrollY)) / r.height : 0.5;
-                        } else { delete objectiu.selector; delete objectiu.offsetXPercent; delete objectiu.offsetYPercent; }
-                        desarTotesLesNotes();
-                    };
-                    document.addEventListener('mousemove', moure); document.addEventListener('mouseup', deixar);
+                    // 1. Esborrem la fletxa vella de les dades
+                    elementNota.objectiusFletxa = elementNota.objectiusFletxa.filter(o => o.id !== objectiu.id);
+                    // 2. Esborrem els elements visuals de la fletxa vella
+                    linia.remove();
+                    punta.remove();
+                    // 3. Cridem a la funció de creació de fletxes
+                    elementNota.iniciarCreacioFletxa(e);
                 });
             }
+            
+            // DIBUIXAT: Aquesta és la teva lògica original, que funciona.
             const rN = elementNota.getBoundingClientRect(); const x0 = rN.left + window.scrollX + rN.width / 2; const y0 = rN.top + window.scrollY + rN.height / 2;
             let xf, yf; const elDesti = objectiu.selector && document.querySelector(objectiu.selector);
             if (elDesti) {
@@ -81,11 +86,15 @@
             punta.setAttribute('cx', xf); punta.setAttribute('cy', yf);
         });
     };
-
-    const renderitzarNota = (dadesNota) => {
+    
+            
+const renderitzarNota = (dadesNota) => {
         const { id, x, y, width = '200px', height = '200px', content, color: colorCapcalera = COLOR_CAPCALERA_PER_DEFECTE, objectiusFletxa = [] } = dadesNota;
         const elementNota = document.createElement('div');
-        elementNota.id = id; elementNota.className = 'post-it-note'; elementNota.style.left = x; elementNota.style.top = y; elementNota.style.width = width; elementNota.style.height = height; elementNota.dataset.color = colorCapcalera; elementNota.objectiusFletxa = objectiusFletxa;
+        elementNota.id = id; elementNota.className = 'post-it-note'; elementNota.style.left = x; elementNota.style.top = y; elementNota.style.width = width; elementNota.style.height = height; elementNota.dataset.color = colorCapcalera;
+        // IMPORTANT: Assegurem que objectiusFletxa sigui sempre un array.
+        elementNota.objectiusFletxa = Array.isArray(objectiusFletxa) ? objectiusFletxa : [];
+        
         elementNota.innerHTML = ` <div class="post-it-header" style="background-color: ${colorCapcalera};"> <span>Nota</span> <div class="post-it-controls"> <div class="post-it-color-picker" title="Canvia el color" style="background-color: ${colorCapcalera}; border: 1px solid #333;"></div> <div class="post-it-delete" title="Esborra la nota">×</div> </div> <div class="color-palette">${PALETA_COLORS.map(c => `<div class="color-swatch" style="background-color:${c}" data-color="${c}" title="${c}"></div>`).join('')}</div> </div> <textarea class="post-it-textarea" placeholder="Escriu aquí..."></textarea> <div class="post-it-resizer" title="Arrossega per canviar la mida"></div> <div class="post-it-arrow-handle" title="Arrossega per crear una fletxa nova" style="background-color: ${colorCapcalera};"></div>`;
         const areaText = elementNota.querySelector('.post-it-textarea'); areaText.value = content; areaText.addEventListener('input', desarTotesLesNotes);
         const selectorColor = elementNota.querySelector('.post-it-color-picker'); const paletaColors = elementNota.querySelector('.color-palette');
@@ -97,25 +106,37 @@
         capcalera.addEventListener('mousedown', (e) => { e.stopPropagation(); document.body.classList.add('no-text-select', 'post-it-dragging-active'); const desfasamentX = e.clientX - elementNota.getBoundingClientRect().left; const desfasamentY = e.clientY - elementNota.getBoundingClientRect().top; const enMovimentMouse = (moveE) => { elementNota.style.left = `${moveE.pageX - desfasamentX}px`; elementNota.style.top = `${moveE.pageY - desfasamentY}px`; renderitzarFletxesPerNota(elementNota); }; const enDeixarAnarMouse = () => { document.body.classList.remove('no-text-select', 'post-it-dragging-active'); document.removeEventListener('mousemove', enMovimentMouse); document.removeEventListener('mouseup', enDeixarAnarMouse); desarTotesLesNotes(); }; document.addEventListener('mousemove', enMovimentMouse); document.addEventListener('mouseup', enDeixarAnarMouse); });
         const cantonadaRedimensio = elementNota.querySelector('.post-it-resizer');
         cantonadaRedimensio.addEventListener('mousedown', (e) => { e.stopPropagation(); document.body.classList.add('no-text-select', 'post-it-dragging-active'); const xInicial = e.pageX; const yInicial = e.pageY; const ampladaInicial = elementNota.offsetWidth; const alcadaInicial = elementNota.offsetHeight; const enMovimentMouse = (moveE) => { const novaAmplada = Math.max(150, ampladaInicial + (moveE.pageX - xInicial)); const novaAlcada = Math.max(100, alcadaInicial + (moveE.pageY - yInicial)); elementNota.style.width = `${novaAmplada}px`; elementNota.style.height = `${novaAlcada}px`; renderitzarFletxesPerNota(elementNota); }; const enDeixarAnarMouse = () => { document.body.classList.remove('no-text-select', 'post-it-dragging-active'); document.removeEventListener('mousemove', enMovimentMouse); document.removeEventListener('mouseup', enDeixarAnarMouse); desarTotesLesNotes(); }; document.addEventListener('mousemove', enMovimentMouse); document.addEventListener('mouseup', enDeixarAnarMouse); });
-        const puntCrearFletxa = elementNota.querySelector('.post-it-arrow-handle');
-        puntCrearFletxa.addEventListener('mousedown', (e) => {
+        
+        // Funció reutilitzable per crear una fletxa. Aquesta és la teva lògica original que funciona.
+        const iniciarCreacioFletxa = (e) => {
             e.stopPropagation(); document.body.classList.add('no-text-select', 'post-it-dragging-active'); const fletxaTemporal = document.createElementNS("http://www.w3.org/2000/svg", "line"); const colorFletxa = elementNota.dataset.color; const idMarcador = `url(#arrowhead-${colorFletxa.substring(1)})`; fletxaTemporal.setAttribute('stroke', colorFletxa); fletxaTemporal.setAttribute('stroke-width', '3'); fletxaTemporal.setAttribute('marker-end', idMarcador); llencSVG.appendChild(fletxaTemporal);
             const enMovimentMouse = (moveE) => { const rectangleNota = elementNota.getBoundingClientRect(); const iniciX = rectangleNota.left + window.scrollX + rectangleNota.width / 2; const iniciY = rectangleNota.top + window.scrollY + rectangleNota.height / 2; fletxaTemporal.setAttribute('x1', iniciX); fletxaTemporal.setAttribute('y1', iniciY); fletxaTemporal.setAttribute('x2', moveE.pageX); fletxaTemporal.setAttribute('y2', moveE.pageY); };
             const enDeixarAnarMouse = (upE) => {
-                document.body.classList.remove('no-text-select', 'post-it-dragging-active'); fletxaTemporal.remove(); document.removeEventListener('mousemove', enMovimentMouse); document.removeEventListener('mouseup', enDeixarAnarMouse); const rectangleNota = elementNota.getBoundingClientRect(); const iniciX = rectangleNota.left + window.scrollX + rectangleNota.width / 2; const iniciY = rectangleNota.top + window.scrollY + rectangleNota.height / 2;
+                document.body.classList.remove('no-text-select', 'post-it-dragging-active'); fletxaTemporal.remove(); document.removeEventListener('mousemove', enMovimentMouse); document.removeEventListener('mouseup', enDeixarAnarMouse);
+                const rectangleNota = elementNota.getBoundingClientRect(); const iniciX = rectangleNota.left + window.scrollX + rectangleNota.width / 2; const iniciY = rectangleNota.top + window.scrollY + rectangleNota.height / 2;
                 if (Math.hypot(upE.pageX - iniciX, upE.pageY - iniciY) > 30) {
                     llencSVG.style.pointerEvents = 'none'; const elementDesti = document.elementFromPoint(upE.clientX, upE.clientY); llencSVG.style.pointerEvents = 'auto';
                     const nouObjectiu = { id: `arrow-${Date.now()}`, lastX: upE.pageX, lastY: upE.pageY };
-                    if (elementDesti && elementDesti.tagName.toLowerCase() !== 'body' && elementDesti.tagName.toLowerCase() !== 'html') { nouObjectiu.selector = generarSelectorCSS(elementDesti); const rectDesti = elementDesti.getBoundingClientRect(); nouObjectiu.offsetXPercent = rectDesti.width > 0 ? (upE.pageX - (rectDesti.left + window.scrollX)) / rectDesti.width : 0.5; nouObjectiu.offsetYPercent = rectDesti.height > 0 ? (upE.pageY - (rectDesti.top + window.scrollY)) / rectDesti.height : 0.5; }
-                    elementNota.objectiusFletxa.push(nouObjectiu); renderitzarFletxesPerNota(elementNota); desarTotesLesNotes();
+                    if (elementDesti && !['body','html'].includes(elementDesti.tagName.toLowerCase())) {
+                        nouObjectiu.selector = generarSelectorCSS(elementDesti); const rectDesti = elementDesti.getBoundingClientRect();
+                        nouObjectiu.offsetXPercent = rectDesti.width > 0 ? (upE.pageX - (rectDesti.left + window.scrollX)) / rectDesti.width : 0.5;
+                        nouObjectiu.offsetYPercent = rectDesti.height > 0 ? (upE.pageY - (rectDesti.top + window.scrollY)) / rectDesti.height : 0.5;
+                    }
+                    elementNota.objectiusFletxa.push(nouObjectiu);
+                    renderitzarFletxesPerNota(elementNota);
+                    desarTotesLesNotes();
                 }
             };
             document.addEventListener('mousemove', enMovimentMouse); document.addEventListener('mouseup', enDeixarAnarMouse);
-        });
+        };
+        
+        elementNota.querySelector('.post-it-arrow-handle').addEventListener('mousedown', iniciarCreacioFletxa);
+        elementNota.iniciarCreacioFletxa = iniciarCreacioFletxa; // La fem accessible
+    
         document.body.appendChild(elementNota);
         if (elementNota.objectiusFletxa.length > 0) { setTimeout(() => renderitzarFletxesPerNota(elementNota), 100); }
     };
-
+    
     // --- LÒGICA DE RESSALTAT ROBUSTA ---
     const executarRessaltat = (noteId) => {
         const notesRessaltadesAbans = document.querySelectorAll('.post-it-highlighted');
