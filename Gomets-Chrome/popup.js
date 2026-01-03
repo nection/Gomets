@@ -227,11 +227,43 @@ document.addEventListener('DOMContentLoaded', () => {
             li.className = 'url-item list-item-container';
             li.dataset.url = url; // Afegim les dades a tot el 'li'
             
-            const textSpan = document.createElement('span');
-            textSpan.className = 'item-text';
-            try { textSpan.textContent = new URL(url).hostname; } catch (e) { textSpan.textContent = url; }
-            textSpan.title = url;
-            li.appendChild(textSpan);
+            // --- CANVI INICI: Estructura de text millorada ---
+            const textContainer = document.createElement('div');
+            textContainer.className = 'item-text'; // Mantenim la classe base per al layout
+
+            let displayDomain = url;
+            let displaySub = null;
+
+            try {
+                const urlObj = new URL(url);
+                displayDomain = urlObj.hostname;
+                
+                // Si la ruta no és '/' o té paràmetres, és una pàgina interna -> mostrem URL completa
+                if (urlObj.pathname !== '/' || urlObj.search) {
+                    displaySub = url;
+                }
+            } catch (e) {
+                // Si la URL no és vàlida, es queda com estava
+                displayDomain = url;
+            }
+
+            // 1. El Domini (Text gran/negreta)
+            const domainDiv = document.createElement('div');
+            domainDiv.className = 'domain-part';
+            domainDiv.textContent = displayDomain;
+            textContainer.appendChild(domainDiv);
+
+            // 2. La URL completa (Text petit a sota), només si cal
+            if (displaySub) {
+                const subDiv = document.createElement('div');
+                subDiv.className = 'sub-url-part';
+                subDiv.textContent = displaySub;
+                textContainer.appendChild(subDiv);
+            }
+
+            textContainer.title = url; // Tooltip natiu
+            li.appendChild(textContainer);
+            // --- CANVI FI ---
 
             const deleteBtn = document.createElement('button');
             deleteBtn.className = 'delete-btn';

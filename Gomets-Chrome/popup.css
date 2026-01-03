@@ -294,3 +294,45 @@ li.drag-over-bottom {
         background: #3a4a5a;
     }
 }
+
+/* --- ESTILS NOUS PER A LES URLS LLARGUES --- */
+
+/* Modifiquem el contenidor de text per permetre línies múltiples */
+.url-item .item-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    white-space: normal; /* Permet que el text baixi de línia */
+    min-width: 0; /* Important per flexbox */
+}
+
+/* La part del domini (títol principal) */
+.domain-part {
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    color: #333;
+}
+
+/* La part de la URL completa (text petit a sota) */
+.sub-url-part {
+    font-size: 11px; /* Lletra ben petita */
+    color: #888;       /* Color gris suau per no molestar */
+    margin-top: 2px;
+    line-height: 1.2;
+    word-break: break-all; /* Trenca la URL si és molt llarga */
+    
+    /* Limita a 3 línies com a màxim i posa punts suspensius */
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Ajust pel mode fosc */
+@media (prefers-color-scheme: dark) {
+    .domain-part { color: #f0f0f0; }
+    .sub-url-part { color: #aaa; }
+}
